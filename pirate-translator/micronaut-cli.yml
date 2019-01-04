@@ -1,0 +1,5 @@
+profile: function-aws
+defaultPackage: pirate.translator
+---
+testFramework: spek
+sourceLanguage: kotlin
