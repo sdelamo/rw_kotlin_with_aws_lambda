@@ -27,8 +27,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
-
 package com.raywenderlich
 
 data class HandlerInput(val message: String)

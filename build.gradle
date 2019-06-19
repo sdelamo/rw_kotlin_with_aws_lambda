@@ -1,0 +1,178 @@
+import groovy.text.StreamingTemplateEngine
+import groovy.text.Template
+
+apply plugin: 'base'
+
+ext {
+    title = 'MVP on Android'
+}
+
+String langForFilename(String filename) {
+    if (filename.endsWith('.kt')) {
+        return 'kotlin'
+    }
+    return 'java'
+}
+
+
+
+boolean skipLicenseProcess(String filename) {
+    if(filename.endsWith('build.gradle')) {
+        return true
+    }
+    return false
+}
+String fileContents(String filename, Map<String, String> args) {
+    String tabs = '  '
+    String closingComment = ' */'
+    String javaSingleLineComment = '//'
+    String text = ''
+    boolean licenseProcessed =  skipLicenseProcess(filename)
+    boolean openTagFound = false
+    boolean closeTagFound = false
+    new File(filename).eachLine { String line ->
+        if (line.startsWith("${javaSingleLineComment}end::${args.tag}[]".toString())) {
+            println 'setting close tag'
+            closeTagFound = true
+        }
+
+        if (licenseProcessed || !args.skipLicense ) {
+            if (args.tag) {
+
+                if(openTagFound && !closeTagFound) {
+
+                    text += line + '\n'
+                }
+            } else {
+                text += line + '\n'
+            }
+        }
+        if (line.startsWith(closingComment)) {
+            licenseProcessed = true
+        }
+        if (line.startsWith("${javaSingleLineComment}tag::${args.tag}[]".toString())) {
+            println 'setting open tag'
+            openTagFound = true
+        }
+
+    }
+    text.replaceAll('\t',tabs)
+}
+
+Map<String, Object> includeArgs(String line) {
+    Map<String, Object> args = [skipLicense: true]
+    for (String arg : line.substring(line.indexOf('[') + 1, line.indexOf(']')).split(',') ) {
+        String[] arr = arg.split('=')
+        if (arr.size() == 2) {
+            args[arr[0].trim()] = arr[1].trim()
+        }
+    }
+    args
+}
+
+String post(boolean preAndCode = false, boolean skipLicense = true, boolean wrapInParagraphs = false) {
+    final String includeTag = 'include::'
+    String text = ''
+    new File("${projectDir}/src/main/resources/post.html").eachLine { line ->
+        if (line.startsWith(includeTag) && line.endsWith(']')) {
+            String filename = line.substring(line.indexOf(includeTag) + includeTag.length(), line.indexOf('['))
+            logger.quiet(filename)
+            if (new File(filename).exists()) {
+                Map<String, Object> args = includeArgs(line)
+                text += preAndCode ? '<pre lang="'+langForFilename(filename)+'"><code>' : '<pre lang="'+langForFilename(filename)+'">'
+                text += fileContents(filename, args)
+                text += preAndCode ? '</code></pre>' : '</pre>'
+            } else {
+                text += line
+            }
+        } else {
+            if (wrapInParagraphs && !line.startsWith('<') && line!='') {
+                text += "<p>$line</p>"
+            } else {
+                text += line + '\n'
+            }
+        }
+    }
+    text
+}
+
+task replacePlaceholders() {
+    group 'rw'
+    doLast {
+        File templateFile = new File("${projectDir}/src/main/resources/template.html")
+        Template template = new StreamingTemplateEngine().createTemplate(templateFile)
+
+        Map binding = [
+                title: title,
+                body: post(true, true, true),
+        ]
+        if (!new File("${buildDir}").exists()) {
+            new File("${buildDir}").mkdir()
+        }
+        File f = new File("${buildDir}/index.html")
+        f.createNewFile()
+        f.text = template.make(binding)
+
+
+        File outputPost = new File("${buildDir}/wordpress.html")
+        outputPost.createNewFile()
+        outputPost.text = post(false, true, false)
+    }
+}
+
+apply plugin:'base'
+
+ext {
+    filesToExclude = ["**/local.properties",
+                      "**/.idea",
+                      "**/.gradle",
+                      "**/build",
+                      "**/.git",
+                      "**/*.iml"]
+}
+task copyStarter {
+    group 'rw'
+    ext.destDir = "$buildDir/materials/${starterFolder}"
+    ext.originDir = "${rootProject.projectDir}/${starterFolder}"
+    doLast {
+        copy {
+            from originDir
+            into destDir
+            for ( String name : filesToExclude ) {
+                exclude name
+            }
+        }
+    }
+}
+
+task copyFinal {
+    group 'rw'
+    ext.destDir = "$buildDir//materials/${finalFolder}"
+    ext.originDir = "${rootProject.projectDir}/${finalFolder}"
+    doLast {
+        copy {
+            from originDir
+            into destDir
+            for ( String name : filesToExclude ) {
+                exclude name
+            }
+        }
+    }
+}
+task zip(type: Zip) {
+    ext {
+        zipName = "materials.zip"
+    }
+    group 'rw'
+    dependsOn 'copyStarter'
+    dependsOn 'copyFinal'
+    archiveName = zipName
+    from "${buildDir}/materials"
+    destinationDirectory = file("${buildDir}")
+    doLast {
+        logger.quiet "Generated ${buildDir}/${zipName}"
+    }
+}
+
+build.dependsOn 'zip'
+build.dependsOn 'replacePlaceholders'

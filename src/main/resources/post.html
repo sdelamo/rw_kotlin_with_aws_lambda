@@ -1,0 +1,313 @@
+<h2>Introduction</h2>
+
+AWS Lambda
+lets you run code without thinking about servers.
+
+You pay only for the compute time that you consume — there is no charge when your code is not running. With Lambda, you can run code for virtually any type of application or backend service, all with zero administration.
+
+<h3>Prerequisites</h3>
+
+<ul>
+	<li><a href="https://aws.amazon.com">Amazon Web Services (AWS) account.</a></li>
+	<li>JDK 8</li>
+	<li><a href="https://gradle.org">Gradle</a>. The easiest way to install Gradle in your computer is to use <a href="https://sdkman.io">SDKMan.io</a></li>
+</ul>
+
+<h2>Creating A Kotlin App With Gradle</h2>
+
+We are going to create a function as a Kotlin app built with Gradle.
+
+Open app a terminal and run the <code>gradle init</code> wizard which will get us started.
+
+<pre lang="bash">
+	<code>
+$ gradle init
+
+Select type of project to generate:
+1: basic
+2: cpp-application
+3: cpp-library
+4: groovy-application
+5: groovy-library
+6: java-application
+7: java-library
+8: kotlin-application
+9: kotlin-library
+10: scala-library
+Enter selection (default: basic) [1..10] 8
+
+Select build script DSL:
+1: groovy
+2: kotlin
+Enter selection (default: kotlin) [1..2] 2
+
+Project name (default: gradletest): pirate-translator
+Source package (default: pirate.translator): com.raywenderlich
+	</code>
+</pre>
+
+<h3>Applying The Gradle Shadow Plugin</h3>
+
+We are going to distribute our app as a FAT Jar. Edit <code>build.gradle</code>, and apply the <a href="https://plugins.gradle.org/plugin/com.github.johnrengelman.shadow">Shadow Jar</a> Gradle plugin; a plugin for collapsing all dependencies and project code into a single Jar file.
+
+<pre>
+<code>
+plugins {
+	...
+    id("com.github.johnrengelman.shadow") version "5.0.0"
+    ...
+}
+</code>
+</pre>
+
+<h3>Adding Kotlin Jackson Module Dependency</h3>
+
+
+Edit <code>build.gradle</code>, and add the Jackson Module Kotlin dependency:
+
+
+<pre>
+<code>
+dependencies {
+	...
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.9.8")
+    ...
+}
+</code>
+</pre>
+
+The <a href="https://github.com/FasterXML/jackson-module-kotlin">Jackson Module Kotlin</a> dependency adds support for serialization/deserialization of Kotlin classes and data classes.
+
+<h2>Writing the app</h2>
+
+Let's write the Pirate translator logic. Expect simple logic :]
+
+For input <i>Yes</i>, it returns <i>Aye</i>.
+
+For input <i>Hello</i>, it returns <i>Ahoy</i>.
+
+For example, for input:
+
+<i>"Hello, I am Captain Jack Sparrow"</i>
+
+the pirate translator returns:
+
+
+<i>"Ahoy!, I am Captain Jack Sparrow"</i>
+
+
+Create a <a href="https://kotlinlang.org/docs/reference/data-classes.html">Kotlin Data Class</a> to encapsulate input into the pirate translator <code>src/main/kotlin/com/raywenderlich/HandlerInput.kt</code>:
+
+include::raw/src/main/kotlin/com/raywenderlich/HandlerInput.kt[]
+
+Create a <a href="https://kotlinlang.org/docs/reference/data-classes.html">Kotlin Data Class</a> to encapsulate the response out of the pirate translator <code>src/main/kotlin/com/raywenderlich/HandlerOutput.kt</code>:
+
+include::raw/src/main/kotlin/com/raywenderlich/HandlerOutput.kt[]
+
+Create an interface which describes the pirate translator operations: <code>src/main/kotlin/com/raywenderlich/PirateTranslator.kt</code>:
+
+include::raw/src/main/kotlin/com/raywenderlich/PirateTranslator.kt[]
+
+Create a default implementation for the <code>PirateTranslator</code> <code>src/main/kotlin/com/raywenderlich/DefaultPirateTranslator.kt</code>:
+
+include::raw/src/main/kotlin/com/raywenderlich/DefaultPirateTranslator.kt[]
+
+I leave it as an exercise for reader to create a more complete implementation of the translator. :]
+
+Replace the content of  <code>src/main/kotlin/com/raywenderlich/App.kt</code>:
+
+include::raw/src/main/kotlin/com/raywenderlich/App.kt[]
+
+<h2>Creating AWS Lambda function</h2>
+
+
+Go to <a href="https://console.aws.amazon.com/lambda/">AWS Lambda</a> inside AWS Console and click <em>Create a Function</em>.
+
+<ul>
+	<li>Enter <em>pirateTranslator</em> as function name.</li>
+	<li>Select Java 8 as runtime.</li>
+</ul>
+
+
+Generate a FAT Jar. Open a terminal and run:
+
+<pre><code>./gradlew shadowJar</code></pre>
+
+A fat jar is generated under <code>build/libs</code> folder.
+
+Click Save in the top right cornet.
+
+<h3>Write a test</h3>
+
+<h2>Introduction</h2>
+
+In this tutorial, we will look at one way to achieve a clean codebase by applying a design pattern called MVP, short for Model-View-Presenter and how it fits into the Android ecosystem.
+
+<h2>The traditional approach (MVC)</h2>
+
+A screen in a mobile app is made up of three main components.
+
+<ul>
+	<li><em>Data</em>. The first component we have is the data which drives our app.</li>
+	<li><em>Views</em>. The second component we need is the views to display the data in a format that is useful for the user. In Android, the views are specified in the layout file. The XML file contains the views themselves and how they are to be laid out on the screen.</li>
+	<li><em>Controllers</em>. Finally, we need a way to connect these two together and let each of the components know that something needs to be done. We can do this in the activities and fragments which inflate the view. Let's call this the Controller for now. The job of the controller is to update the model when something happens on the view or to update the view when the data changes. Sometimes you have a passive model where only the controller can change the model or you can have an active model where an observer handles the changes to the model anytime anything else changes.</li>
+</ul>
+
+
+<h2>What is wrong with this approach?</h2>
+
+When it comes to implementing MVC on the Android platform things get tricky. One issue that comes up with this approach is that <em>most of our logic ends up in the controller</em>. It is a common Android problem to have a controller activity which contains all the logic. The controller then has all the responsibility for how the screen works. For a simple screen this may be manageable but as features get added this file will keep growing.
+
+<h3>Tightly coupled views and controllers</h3>
+
+Android activities are closely coupled to both UI and data access mechanisms. Thus, it is easy to fall into a trap to place controller and view logic in activity and fragments. It creates tightly coupled components which make it harder to refactor and change them.
+
+<h3>Difficult to test controllers</h3>
+
+Also, it creates difficult to test components. Most of the code that needs to be tested exists in the controller. Much of the code will require running android Components which need a running system. Basic unit testing will not help, we will need to use expensive instrumented unit tests to test the basic parts of the app.
+
+<h2>MVP (Model-View-Presenter)</h2>
+
+One fix to the problem is the decouple some of the parts from each other. The tight coupling prevents us from easily making changes to the codebase. This can be done with a presenter which changes the flow of data slightly to allow for a controller that is truly separate from the view. The presenter abstracts away the business logic from the controller and leaves the android specific code in the view layer.
+
+MVP is one design pattern that you can use to deal with the issues above and is is a good default architecture. It provides an easy way to think about how your app is structured. It provides modularity, testability and in general more clean and maintainable codebase. <em>The basic idea is that you have the data (model) and UI (view) which communicate through a intermediary (presenter) and never directly with one another</em>. The presenter contains the bulk of the business logic while the view will be mostly about how to display the data that is passed in. The controller which used to handle everything is now splits its responsibilities between the view and presenter.
+
+So lets looks at how the component changed.
+
+<ul>
+	<li><em>Model</em>. The model contains the data that drives what is being displayed. Usually this data is fetched from the network or the local database.</li>
+	<li><em>View</em>. The view is what's being displayed to the user.  It also handles any interaction the user may have with the screen.  e.g. handle their click listeners. The view should only be responsible  for displaying things and should not contain any business logic.  As such the view tends to be lighter than a controller and doesn't  contain too much code. In android this will be handled by activities  and fragments.</li>
+	<li><em>Presenter</em> The last part is the presenter, which handles UI the updates based on changes to the data model or processes users inputs. This is where much of the business code will be contained.</li>
+</ul>
+
+So how does data flow between these components? Let's take a look at this diagram:
+
+<img src="https://koenig-media.raywenderlich.com/uploads/2018/09/mvp-435x320.png" alt="MVP diagram"  width="435" height="320" class="alignnone size-medium wp-image-202924" />
+
+We have our three components model (data), the view, and the presenter. We also have interfaces to define the presenter and the view. Interfaces can help with decoupling parts of the component which is what we are trying to accomplish. The interface forms a contract between the presenter and view. They will also help us define and write tests cases later.
+
+When there are changes to the data the presenter will be notified that the data has changed and the appropriate method will be called to update the UI. The view will then receive that data and update itself using the data that was passed in through the presenter. We can also go in the opposite direction with inputs on the view. When a user interacts with the view a method in the presenter is called. The presenter then calls the appropriate method for that action to update on the model side.
+
+<h2>How MVP works with Android</h2>
+
+To kick things off, start by downloading the material for this tutorial (you can find a link at the top or bottom of this tutorial).
+
+The main screen of the app is written in the MVC pattern. The model is the weather data coming from the <a href="https://openweathermap.org/api" rel="noopener" target="_blank">OpenWeatherMap API</a>. In a production app, you will fetch this data with a networking library such as <a href="https://square.github.io/retrofit/" target="_blank" rel="noopener">Retrofit</a>. To keep this tutorial simple we have a class <code>WeatherRepositoryImpl</code> which inflates a model <code>Weather</code> from a JSON payload using <a href="https://github.com/square/moshi" target="_blank" rel="noopener">Moshi</a>; a JSON library for Android and Java which makes it easy to parse JSON into Java objects.
+
+The flow of the application is simple. When the view finishes loading, we fetch the weather data. Then, we check to see if the rain value is a positive one and then we display the umbrella image or the sun image.
+
+It contains most logic in single class, <code>MainActivity.kt</code>.
+
+Familiarize your self with the <i>starter</i> project code which uses a structure as illustrated in the following diagram:
+
+<img src="https://koenig-media.raywenderlich.com/uploads/2018/09/app-mvc.png" alt="Android Sample App - Model View Controller" width="425" height="126" class="alignnone size-full wp-image-202922" />
+
+We are going to transition this sample app to a Model-View-Presenter architecture.
+
+<img src="https://koenig-media.raywenderlich.com/uploads/2018/09/app-mvp-421x320.png" alt="Android Sample App - Model View Presenter" width="421" height="320" class="alignnone size-medium wp-image-202923" />
+
+One popular way of managing the parts of the app is to organize them by feature. A feature is composed of the model the views, and the presenters as well as the DI code to create and supply. This way new features can be added and removed from your app as a module. Each module would consist of these three parts for a given screen.
+
+Our app has only one feature; the main screen. We are going to implement MVP for the Main screen. We are going to create some components prefixed with <code>Main</code>.
+
+<h3>Dependency Injection</h3>
+
+Create hand-made dependency injector.
+
+Create an interface <code>app/src/main/java/com/raywenderlich/android/rwandroidtutorial/DependencyInjector.kt</code>.
+
+include::final/app/src/main/java/com/raywenderlich/android/rwandroidtutorial/DependencyInjector.kt[]
+
+And a class <code>app/src/main/java/com/raywenderlich/android/rwandroidtutorial/DependencyInjectorImpl.kt</code>.
+
+include::final/app/src/main/java/com/raywenderlich/android/rwandroidtutorial/DependencyInjectorImpl.kt[]
+
+In a production app, you will choose among any of the dependency injection frameworks in the Android ecosystem (e.g. <a href="https://google.github.io/dagger/" rel="noopener" target="_blank">Dagger2</a>) which will help in working with an MVP architected app.
+
+To learn more, read Dependency Injection in Android <a href="https://www.raywenderlich.com/262-dependency-injection-in-android-with-dagger-2-and-kotlin">with Dagger 2</a> or <a href="https://www.raywenderlich.com/5730-dependency-injection-with-koin" target="_blank" rel="noopener"> with Koin</a>.
+
+<h3>Contract</h3>
+
+Create a new file <code>app/src/main/java/com/raywenderlich/android/rwandroidtutorial/BasePresenter.kt</code>. This is an interface which our app presenters will implement.
+
+Later we discuss the role of the <code>onDestroy</code> method when we evaluate MVP challenges.
+
+include::final/app/src/main/java/com/raywenderlich/android/rwandroidtutorial/BasePresenter.kt[]
+
+Create a new file <code>app/src/main/java/com/raywenderlich/android/rwandroidtutorial/BaseView.kt</code>. This is an interface which our app views will implement.
+
+include::final/app/src/main/java/com/raywenderlich/android/rwandroidtutorial/BaseView.kt[]
+
+Create a contract <code>app/src/main/java/com/raywenderlich/android/rwandroidtutorial/MainContract.kt</code> which defines interfaces for view and presenter for the Main Screen.
+
+include::final/app/src/main/java/com/raywenderlich/android/rwandroidtutorial/MainContract.kt[]
+
+<h3>Presenter</h3>
+
+Create a new file <code>app/src/main/java/com/raywenderlich/android/rwandroidtutorial/MainPresenter.kt</code>. This is the presenter which will be used by the <code>MainActivity</code>.
+
+include::final/app/src/main/java/com/raywenderlich/android/rwandroidtutorial/MainPresenter.kt[]
+
+The presenter gets the view and dependency injector in the constructor.
+
+<em>The presenter has no code that uses the Android APIs</em>.
+
+<h3>View</h3>
+
+Replace the content of <code>app/src/main/java/com/raywenderlich/android/rwandroidtutorial/MainActivity.kt</code> with:
+
+include::final/app/src/main/java/com/raywenderlich/android/rwandroidtutorial/MainActivity.kt[]
+
+<code>MainActivity</code> configures its presenter at <code>onCreate</code> method and implements the <code>MainContract.View</code> interface. The methods deal only with Android components. We have managed to extract all the business logic to a place where we can easily test it. Android views will be implemented with Activities and fragments. Views are the component where you can retrieve the context. Views can inflate an XML layout and display on the screen. They are also subject to lifecycle changes.
+
+<h2>Testing your components</h2>
+
+Testing your app will be much easier once you adopt MVP as an architecture.
+
+Add <a href="https://site.mockito.org" rel="noopener" target="_blank">Mockito</a>, a mocking framework for unit tests in Java, to your testing dependencies (<code>final/app/build.gradle</code>):
+
+include::final/app/build.gradle[tag=testdependencies]
+
+Create a <a href="https://developer.android.com/training/testing/unit-testing/local-unit-tests" rel="noopener" target="_blank">Unit test</a> for the presenter <code>final/app/src/test/java/com/raywenderlich/android/rwandroidtutorial/MainPresenterTest.kt</code>:
+
+include::final/app/src/test/java/com/raywenderlich/android/rwandroidtutorial/MainPresenterTest.kt[]
+
+As the previous test illustrates, we can mock the view (<code>MainActivity</code>) and tests our business logic with a simple unit test.
+
+The project contains an instrumented test, <code>final/app/src/androidTest/java/com/raywenderlich/android/rwandroidtutorial/MainActivityTest.kt</code>. Check it out if you are curious.
+
+At this point your test should pass.
+
+If you run the app, you will get a weather prediction. If you tap the button, the UI refreshes with a random weather icon (sun or rain).
+
+<a href="https://koenig-media.raywenderlich.com/uploads/2018/09/Screenshot_1535894067.png"><img src="https://koenig-media.raywenderlich.com/uploads/2018/09/Screenshot_1535894067-300x500.png" alt="Screenshot of MVP sample app" width="300" height="500" class="alignnone size-large wp-image-202973" /></a>
+
+<h2>Pitfalls</h2>
+
+Now that we understand how the MVP architecture looks like on the Android platform we can start to see some issues.
+
+<h3>Views lifecycle</h3>
+
+At any given time, the Activity and any associated Fragments (the views) may be destroyed. Since the presenter keeps a reference to the view, we may try to update an activity that is already detached.
+
+In our sample app, we added to the <code>BasePresenter</code> a method named <code>onDestroy</code>. When the Activity lifecycle method <code>onDestroy</code> gets called on <code>MainActivity</code>, we call the <code>MainPresenter::onDestroy</code> which sets the presenter reference to <code>view</code> to <code>null</code>. Kotlin <code>null</code> safety features prevent us from calling a method in a <code>null</code> view.
+
+<h3>Presenter code reuse</h3>
+
+Let's look at the role of the presenter. Most of the logic will exist in here. On a screen with many interactions the presenter can become quite large. Creating <code>BasePresenters</code> and utility functions are the easiest path to code reuse.
+
+<h3>Presenter State</h3>
+
+The presenter also becomes dependant on its state. Some methods may need to check on the current state of the presenter in order to function.  Data flows in two directions to the model and to the view. The presenter behaves like a state machine but does not actually have the functionality of one leading to awkwardness when trying to figure out these states.
+
+<h2>Where to Go From Here?</h2>
+
+So that was an overview of using a simple, yet effective pattern, to make your code much easier to work with. Model View Presenter has uses beyond mobile programming so I hope this may influence how you write any application in the future.
+
+Once you understand this pattern well apply it to other projects at your own pace. Consider your needs and explore some other ways to help keep your code modular and testable.
+
+Please note that there are other patterns such as Model-View-View-Model (MVVM) and Model-View-Intent (MVI) at your disposal. Discover other <a href="https://www.raywenderlich.com/470-common-design-patterns-for-android-with-kotlin" target="_blank" rel="noopener">Common Design Patterns for Android with Kotlin</a> to make your Android code cleaner and easier to understand with these common design patterns for Android apps.
+
+Also, read <a href="https://github.com/googlesamples/android-architecture" rel="noopener" target="_blank">Android Architecture Blueprints</a>. A collection of samples to discuss and showcase different architectural tools and patterns for Android apps.</li>
+
+If you have any questions or comments, please join the forum discussion below.

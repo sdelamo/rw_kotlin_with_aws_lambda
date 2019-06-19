@@ -1,0 +1,4 @@
+rootProject.name = 'rw_kotlin_with_aws_lambda'
+
+include 'raw'
+//include 'pirate-translator'

@@ -1,6 +1,6 @@
 plugins {
     id("org.jetbrains.kotlin.jvm").version("1.3.10")
-    id("com.github.johnrengelman.shadow").version ("4.0.3")
+    id("com.github.johnrengelman.shadow") version "5.0.0"
     application
 }
 
